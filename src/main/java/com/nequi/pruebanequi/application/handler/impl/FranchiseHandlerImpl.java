@@ -1,6 +1,5 @@
 package com.nequi.pruebanequi.application.handler.impl;
 
-
 import com.nequi.pruebanequi.application.handler.IFranchiseHandler;
 import com.nequi.pruebanequi.domain.model.api.IFranchiseBranchServicePort;
 import com.nequi.pruebanequi.domain.model.api.IFranchiseServicePort;
@@ -15,10 +14,7 @@ import com.nequi.pruebanequi.infrastructure.output.rest.mappers.IFranchiseBranch
 import com.nequi.pruebanequi.infrastructure.output.rest.mappers.IFranchiseRequestMapper;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
-import org.springframework.http.HttpStatus;
 import org.springframework.stereotype.Component;
-import org.springframework.web.reactive.function.server.ServerRequest;
-import org.springframework.web.reactive.function.server.ServerResponse;
 import reactor.core.publisher.Flux;
 import reactor.core.publisher.Mono;
 
@@ -32,33 +28,29 @@ public class FranchiseHandlerImpl implements IFranchiseHandler {
     private final IFranchiseRequestMapper franchiseRequestMapper;
     private final IFranchiseBranchServicePort franchiseBranchServicePort;
     private final IFranchiseBranchRequestMapper franchiseBranchRequestMapper;
+
     @Override
-    public Mono<ServerResponse> createFranchise(ServerRequest request) {
-        return request.bodyToMono(FranchiseCreateRequestDTO.class)
-                .switchIfEmpty(Mono.error(new BusinessException(BusinessErrorMessage.EMPTY_REQUEST_BODY)))
-                .flatMap(franchiseRequest -> {
-                    Franchise franchise = franchiseRequestMapper.toDomain(franchiseRequest);
-                    List<Integer> branchIds = franchiseRequest.getBranchIds();
+    public Mono<FranchiseCreatedResponseDTO> createFranchise(FranchiseCreateRequestDTO franchiseRequest) {
+        if (franchiseRequest == null) {
+            return Mono.error(new BusinessException(BusinessErrorMessage.EMPTY_REQUEST_BODY));
+        }
 
-                    return franchiseServicePort.createFranchise(franchise)
-                            .flatMap(savedFranchise -> {
+        Franchise franchise = franchiseRequestMapper.toDomain(franchiseRequest);
+        List<Integer> branchIds = franchiseRequest.getBranchIds();
 
-                                FranchiseBranchRequestDTO franchiseBranchRequestDto = new FranchiseBranchRequestDTO();
-                                franchiseBranchRequestDto.setFranchiseId(savedFranchise.getId());
-                                franchiseBranchRequestDto.setBranchIds(branchIds);
+        return franchiseServicePort.createFranchise(franchise)
+                .flatMap(savedFranchise -> {
+                    FranchiseBranchRequestDTO franchiseBranchRequestDto = new FranchiseBranchRequestDTO();
+                    franchiseBranchRequestDto.setFranchiseId(savedFranchise.getId());
+                    franchiseBranchRequestDto.setBranchIds(branchIds);
 
-                                return associateBranchesWithFranchise(franchiseBranchRequestDto)
-                                        .then(ServerResponse.status(HttpStatus.CREATED).bodyValue(new FranchiseCreatedResponseDTO(
-                                                savedFranchise.getName()
-                                        )))
-                                        .onErrorResume(associationError ->
-                                                franchiseServicePort.deleteFranchiseById(savedFranchise.getId())
-                                                        .then(Mono.error(new BusinessException(BusinessErrorMessage.ASSOCIATE_FRANCHISE_BRANCH_ERROR)))
-                                        );
-                            });
-                })
-                .onErrorResume(BusinessException.class, e ->
-                        ServerResponse.status(HttpStatus.BAD_REQUEST).bodyValue(e.getMessage()));
+                    return associateBranchesWithFranchise(franchiseBranchRequestDto)
+                            .thenReturn(new FranchiseCreatedResponseDTO(savedFranchise.getName()))
+                            .onErrorResume(associationError ->
+                                    franchiseServicePort.deleteFranchiseById(savedFranchise.getId())
+                                            .then(Mono.error(new BusinessException(BusinessErrorMessage.ASSOCIATE_FRANCHISE_BRANCH_ERROR)))
+                            );
+                });
     }
 
     private Mono<Void> associateBranchesWithFranchise(FranchiseBranchRequestDTO franchiseBranchRequestDto) {
@@ -67,5 +59,4 @@ public class FranchiseHandlerImpl implements IFranchiseHandler {
                 .flatMap(franchiseBranchServicePort::associateBranchToFranchise)
                 .then();
     }
-
 }
