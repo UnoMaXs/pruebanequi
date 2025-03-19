@@ -1,6 +1,5 @@
 package com.nequi.pruebanequi.application.handler.impl;
 
-
 import com.nequi.pruebanequi.application.dto.BranchProductResponseDto;
 import com.nequi.pruebanequi.application.dto.ProductResponseDto;
 import com.nequi.pruebanequi.application.handler.IBranchHandler;
@@ -22,15 +21,10 @@ import com.nequi.pruebanequi.infrastructure.output.rest.mappers.IBranchRequestMa
 import com.nequi.pruebanequi.infrastructure.output.rest.mappers.IProductRequestMapper;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
-import org.springframework.http.HttpStatus;
 import org.springframework.stereotype.Component;
-import org.springframework.web.reactive.function.server.ServerRequest;
-import org.springframework.web.reactive.function.server.ServerResponse;
 import reactor.core.publisher.Flux;
 import reactor.core.publisher.Mono;
-
 import java.util.List;
-
 @Component
 @RequiredArgsConstructor
 @Slf4j
@@ -41,35 +35,27 @@ public class BranchHandlerImpl implements IBranchHandler {
     private final IBranchRequestMapper branchRequestMapper;
     private final IProductRequestMapper productRequestMapper;
     private final IBranchProductRequestMapper branchProductRequestMapper;
-    @Override
-    public Mono<ServerResponse> createBranch(ServerRequest request) {
-        return request.bodyToMono(BranchProductCreateRequestDto.class)
-            .switchIfEmpty(Mono.error(new BusinessException(BusinessErrorMessage.EMPTY_REQUEST_BODY)))
-            .flatMap(branchRequest -> {
-                Branch branch = branchRequestMapper.toDomain(branchRequest);
-                List<Integer> productIds = branchRequest.getProductIds();
 
-                    return branchServicePort.createBranch(branch)
-                        .flatMap(savedBranch -> {
+    public Mono<BranchCreatedResponseDto> createBranch(BranchProductCreateRequestDto branchRequest) {
+        if (branchRequest == null) {
+            return Mono.error(new BusinessException(BusinessErrorMessage.EMPTY_REQUEST_BODY));
+        }
 
-                            BranchProductRequestDTO branchRequestDto = new BranchProductRequestDTO();
-                            branchRequestDto.setBranchId(savedBranch.getId());
-                            branchRequestDto.setProductIds(productIds);
+        Branch branch = branchRequestMapper.toDomain(branchRequest);
+        List<Integer> productIds = branchRequest.getProductIds();
 
-                            return associateProductsWithBranch(branchRequestDto)
-                                    .then(ServerResponse.status(HttpStatus.CREATED).bodyValue(new BranchCreatedResponseDto(
-                                            savedBranch.getName()
-                                    )))
-                                    .onErrorResume(associationError ->
-                                         branchServicePort.deleteBranchById(savedBranch.getId())
+        return branchServicePort.createBranch(branch)
+                .flatMap(savedBranch -> {
+                    BranchProductRequestDTO branchRequestDto = new BranchProductRequestDTO();
+                    branchRequestDto.setBranchId(savedBranch.getId());
+                    branchRequestDto.setProductIds(productIds);
+                    return associateProductsWithBranch(branchRequestDto)
+                            .thenReturn(new BranchCreatedResponseDto(savedBranch.getName()))
+                            .onErrorResume(associationError ->
+                                    branchServicePort.deleteBranchById(savedBranch.getId())
                                             .then(Mono.error(new BusinessException(BusinessErrorMessage.ASSOCIATE_BRANCH_PRODUCT_ERROR))));
-                        });
-
-            })
-            .onErrorResume(BusinessException.class, e ->
-                ServerResponse.status(HttpStatus.BAD_REQUEST).bodyValue(e.getMessage()));
+                });
     }
-
 
     private Mono<Void> associateProductsWithBranch(BranchProductRequestDTO branchProductRequestDto) {
         List<BranchProduct> branchProducts = branchProductRequestMapper.toDomain(branchProductRequestDto);
@@ -78,19 +64,17 @@ public class BranchHandlerImpl implements IBranchHandler {
                 .then();
     }
 
-    @Override
-    public Mono<ServerResponse> updateBranchProducts(ServerRequest request) {
-        return request.bodyToMono(BranchProductUpdateRequestDto.class)
-                .switchIfEmpty(Mono.error(new BusinessException(BusinessErrorMessage.EMPTY_REQUEST_BODY)))
-                .flatMap(branchProductUpdateRequest -> {
-                    Integer branchId = branchProductUpdateRequest.getBranchId();
-                    List<ProductDto> productDtos = branchProductUpdateRequest.getProductList();
+    public Mono<Void> updateBranchProducts(BranchProductUpdateRequestDto branchProductUpdateRequest) {
+        if (branchProductUpdateRequest == null) {
+            return Mono.error(new BusinessException(BusinessErrorMessage.EMPTY_REQUEST_BODY));
+        }
 
-                    return validateAndUpdateProducts(branchId, productDtos);
-                });
+        Integer branchId = branchProductUpdateRequest.getBranchId();
+        List<ProductDto> productDtos = branchProductUpdateRequest.getProductList();
+        return validateAndUpdateProducts(branchId, productDtos);
     }
 
-    private Mono<ServerResponse> validateAndUpdateProducts(Integer branchId, List<ProductDto> productDtos) {
+    private Mono<Void> validateAndUpdateProducts(Integer branchId, List<ProductDto> productDtos) {
         List<Product> productsToUpdate = productDtos.stream()
                 .map(productRequestMapper::toProductDomain)
                 .toList();
@@ -98,14 +82,13 @@ public class BranchHandlerImpl implements IBranchHandler {
         return getProductsByBranch(branchId)
                 .flatMap(branchProducts -> {
                     List<Product> validProductsToUpdate = filterValidProducts(productsToUpdate, branchProducts);
-
                     return Flux.fromIterable(validProductsToUpdate)
                             .flatMap(product -> productServicePort.updateProduct(product)
                                     .onErrorResume(BusinessException.class, e ->
                                             Mono.error(new BusinessException(BusinessErrorMessage.UPDATE_FAILED))
                                     )
                             )
-                            .then(ServerResponse.ok().build());
+                            .then();
                 });
     }
 
@@ -120,28 +103,23 @@ public class BranchHandlerImpl implements IBranchHandler {
                 .toList();
     }
 
-    @Override
-    public Mono<ServerResponse> getBranchProductsByBranchId(ServerRequest request) {
-        Integer branchId = Integer.valueOf(request.pathVariable("id"));
-
+    public Mono<BranchProductResponseDto> getBranchProductsByBranchId(Integer branchId) {
         return getBranchById(branchId)
                 .zipWith(getBranchProducts(branchId))
                 .flatMap(tuple -> {
                     Branch branch = tuple.getT1();
                     List<BranchProduct> branchProducts = tuple.getT2();
-
                     List<Integer> productIds = extractProductIds(branchProducts);
-
                     return getProductsByIds(productIds)
-                            .flatMap(products -> buildBranchProductResponse(branch, products))
-                            .flatMap(responseDto -> ServerResponse.ok().bodyValue(responseDto));
-                })
-                .onErrorResume(this::handleError);
+                            .flatMap(products -> buildBranchProductResponse(branch, products));
+                });
     }
+
     private Mono<Branch> getBranchById(Integer branchId) {
         return branchServicePort.getBranchById(branchId)
                 .switchIfEmpty(Mono.error(new BusinessException(BusinessErrorMessage.BRANCH_NOT_FOUND)));
     }
+
     private Mono<List<BranchProduct>> getBranchProducts(Integer branchId) {
         return branchProductServicePort.getBranchProductByBranchId(branchId)
                 .switchIfEmpty(Mono.error(new BusinessException(BusinessErrorMessage.PRODUCT_NOT_FOUND)));
@@ -159,15 +137,14 @@ public class BranchHandlerImpl implements IBranchHandler {
                 .collectList()
                 .switchIfEmpty(Mono.error(new BusinessException(BusinessErrorMessage.PRODUCT_NOT_FOUND)));
     }
+
     private Mono<BranchProductResponseDto> buildBranchProductResponse(Branch branch, List<Product> products) {
         List<ProductResponseDto> productResponseDtos = products.stream()
                 .map(this::mapToProductResponseDto)
                 .toList();
-
         BranchProductResponseDto responseDto = new BranchProductResponseDto();
         responseDto.setBranchName(branch.getName());
         responseDto.setProductResponseDtoList(productResponseDtos);
-
         return Mono.just(responseDto);
     }
 
@@ -177,12 +154,4 @@ public class BranchHandlerImpl implements IBranchHandler {
         productResponseDto.setStock(product.getStock());
         return productResponseDto;
     }
-    private Mono<ServerResponse> handleError(Throwable e) {
-        if (e instanceof BusinessException) {
-            return ServerResponse.status(HttpStatus.BAD_REQUEST).bodyValue(e.getMessage());
-        }
-        return ServerResponse.status(HttpStatus.INTERNAL_SERVER_ERROR).build();
-    }
-
-
 }

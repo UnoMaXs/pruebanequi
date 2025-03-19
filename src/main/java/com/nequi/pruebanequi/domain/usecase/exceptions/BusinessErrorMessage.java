@@ -17,7 +17,9 @@ public enum BusinessErrorMessage {
     ASSOCIATE_BRANCH_PRODUCT_ERROR("Error al asociar productos. Sucursal eliminada.", 404 ),
     BRANCH_NOT_FOUND("Sucursal no encontrada.", 404 ),
     ASSOCIATE_FRANCHISE_BRANCH_ERROR("Error al asociar sucursal. Franquicia eliminada.", 404 ),
-    EMPTY_REQUEST_BODY("El request viene vacío", 404), UPDATE_FAILED("La actualización falló", 500);
+    EMPTY_REQUEST_BODY("El request viene vacío", 404), UPDATE_FAILED("La actualización falló", 500),
+    INTERNAL_SERVER_ERROR("Error interno del servidor", 404), BAD_REQUEST("Peticion erronea", 400),
+    BRANCH_CREATION_FAILED("Error en la creacion de la marca", 400);
     private final String message;
     private final int httpStatusCode;
 }

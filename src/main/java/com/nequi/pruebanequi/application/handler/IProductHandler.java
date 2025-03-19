@@ -1,11 +1,13 @@
 package com.nequi.pruebanequi.application.handler;
 
+import com.nequi.pruebanequi.application.dto.ProductRequestDTO;
+import com.nequi.pruebanequi.domain.model.models.Product;
 import org.springframework.web.reactive.function.server.ServerRequest;
 import org.springframework.web.reactive.function.server.ServerResponse;
 import reactor.core.publisher.Mono;
 
 public interface IProductHandler {
-    Mono<ServerResponse> createProduct(ServerRequest request);
+    Mono<Product> createProduct(ProductRequestDTO productRequestDTO);
 
-    Mono<ServerResponse> deleteProduct(ServerRequest request);
+    Mono<Void> deleteProduct(Integer integer);
 }
