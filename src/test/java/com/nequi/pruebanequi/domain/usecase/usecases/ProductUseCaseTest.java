@@ -125,39 +125,6 @@ class ProductUseCaseTest {
     }
 
     @Test
-    void updateProduct_Successfully() {
-        // Arrange
-        Product product = new Product();
-        product.setId(1);
-        product.setName("Product 1");
-        product.setStock(10);
-
-        Product updatedProduct = new Product();
-        updatedProduct.setId(1);
-        updatedProduct.setName("Product 1");
-        updatedProduct.setStock(20);
-
-        // Simula que el producto existe y se actualiza correctamente
-        when(productPersistencePort.findProductById(product.getId())).thenReturn(Mono.just(product));
-        when(productPersistencePort.save(any(Product.class))).thenReturn(Mono.just(updatedProduct));
-
-        // Act
-        Mono<Product> result = productUseCase.updateProduct(updatedProduct);
-
-        // Assert
-        StepVerifier.create(result)
-                .expectNextMatches(p ->
-                        p.getId().equals(updatedProduct.getId()) &&
-                                p.getStock().equals(updatedProduct.getStock())
-                )
-                .verifyComplete();
-
-        // Verifica que los métodos del puerto fueron llamados
-        verify(productPersistencePort).findProductById(product.getId());
-        verify(productPersistencePort).save(any(Product.class));
-    }
-
-    @Test
     void updateProduct_NotFound() {
         Product product = new Product();
         product.setId(1);
@@ -180,6 +147,34 @@ class ProductUseCaseTest {
     }
 
     @Test
+    void updateProduct_Successfully() {
+        Product product = new Product();
+        product.setId(1);
+        product.setName("Product 1");
+        product.setStock(10);
+
+        Product updatedProduct = new Product();
+        updatedProduct.setId(1);
+        updatedProduct.setName("Product 1");
+        updatedProduct.setStock(20);
+
+        when(productPersistencePort.findProductById(product.getId())).thenReturn(Mono.just(product));
+        when(productPersistencePort.save(any(Product.class))).thenReturn(Mono.just(updatedProduct));
+
+        Mono<Product> result = productUseCase.updateProduct(updatedProduct);
+
+        StepVerifier.create(result)
+                .expectNextMatches(p ->
+                        p.getId().equals(updatedProduct.getId()) &&
+                                p.getStock() == updatedProduct.getStock() // Usar == para comparar int
+                )
+                .verifyComplete();
+
+        verify(productPersistencePort).findProductById(product.getId());
+        verify(productPersistencePort).save(any(Product.class));
+    }
+
+    @Test
     void getProductById_Successfully() {
         Integer productId = 1;
         Product product = new Product();
@@ -189,14 +184,13 @@ class ProductUseCaseTest {
 
         when(productPersistencePort.findProductById(productId)).thenReturn(Mono.just(product));
 
-        // Act
         Mono<Product> result = productUseCase.getProductById(productId);
 
         StepVerifier.create(result)
                 .expectNextMatches(p ->
                         p.getId().equals(productId) &&
                                 "Product 1".equals(p.getName()) &&
-                                p.getStock().equals(10)
+                                p.getStock() == 10
                 )
                 .verifyComplete();
 
