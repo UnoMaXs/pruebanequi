@@ -133,4 +133,50 @@ class BranchUseCaseTest {
         verify(branchPersistencePort).deleteBranchById(branchId);
     }
 
+    @Test
+    void getBranchById_Successfully() {
+        Integer branchId = 1;
+        Branch branch = new Branch();
+        branch.setId(branchId);
+        branch.setName("Branch 1");
+        branch.setProductIds(Arrays.asList(
+                new Product(1, "Product 1", 1),
+                new Product(2, "Product 2", 1)
+        ));
+
+        when(branchPersistencePort.getBranchById(branchId)).thenReturn(Mono.just(branch));
+
+        // Act
+        Mono<Branch> result = branchUseCase.getBranchById(branchId);
+
+        StepVerifier.create(result)
+                .expectNextMatches(b ->
+                        b.getId().equals(branchId) &&
+                                "Branch 1".equals(b.getName()) &&
+                                b.getProductIds().size() == 2
+                )
+                .verifyComplete();
+
+        verify(branchPersistencePort).getBranchById(branchId);
+    }
+
+    @Test
+    void getBranchById_NotFound() {
+        Integer branchId = 1;
+
+        when(branchPersistencePort.getBranchById(branchId))
+                .thenReturn(Mono.error(new BusinessException(BusinessErrorMessage.BRANCH_NOT_FOUND)));
+
+        Mono<Branch> result = branchUseCase.getBranchById(branchId);
+
+        StepVerifier.create(result)
+                .expectErrorMatches(throwable ->
+                        throwable instanceof BusinessException &&
+                                throwable.getMessage().equals(BusinessErrorMessage.BRANCH_NOT_FOUND.getMessage())
+                )
+                .verify();
+
+        verify(branchPersistencePort).getBranchById(branchId);
+    }
+
 }

@@ -16,6 +16,7 @@ import reactor.test.StepVerifier;
 
 import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.Mockito.lenient;
+import static org.mockito.Mockito.never;
 import static org.mockito.Mockito.verify;
 import static org.mockito.Mockito.when;
 
@@ -123,4 +124,95 @@ class ProductUseCaseTest {
         verify(productPersistencePort).deleteProductById(productId);
     }
 
+    @Test
+    void updateProduct_NotFound() {
+        Product product = new Product();
+        product.setId(1);
+        product.setStock(20);
+
+        when(productPersistencePort.findProductById(product.getId()))
+                .thenReturn(Mono.error(new BusinessException(BusinessErrorMessage.PRODUCT_NOT_FOUND)));
+
+        Mono<Product> result = productUseCase.updateProduct(product);
+
+        StepVerifier.create(result)
+                .expectErrorMatches(throwable ->
+                        throwable instanceof BusinessException &&
+                                throwable.getMessage().equals(BusinessErrorMessage.PRODUCT_NOT_FOUND.getMessage())
+                )
+                .verify();
+
+        verify(productPersistencePort).findProductById(product.getId());
+        verify(productPersistencePort, never()).save(any(Product.class));
+    }
+
+    @Test
+    void updateProduct_Successfully() {
+        Product product = new Product();
+        product.setId(1);
+        product.setName("Product 1");
+        product.setStock(10);
+
+        Product updatedProduct = new Product();
+        updatedProduct.setId(1);
+        updatedProduct.setName("Product 1");
+        updatedProduct.setStock(20);
+
+        when(productPersistencePort.findProductById(product.getId())).thenReturn(Mono.just(product));
+        when(productPersistencePort.save(any(Product.class))).thenReturn(Mono.just(updatedProduct));
+
+        Mono<Product> result = productUseCase.updateProduct(updatedProduct);
+
+        StepVerifier.create(result)
+                .expectNextMatches(p ->
+                        p.getId().equals(updatedProduct.getId()) &&
+                                p.getStock() == updatedProduct.getStock() // Usar == para comparar int
+                )
+                .verifyComplete();
+
+        verify(productPersistencePort).findProductById(product.getId());
+        verify(productPersistencePort).save(any(Product.class));
+    }
+
+    @Test
+    void getProductById_Successfully() {
+        Integer productId = 1;
+        Product product = new Product();
+        product.setId(productId);
+        product.setName("Product 1");
+        product.setStock(10);
+
+        when(productPersistencePort.findProductById(productId)).thenReturn(Mono.just(product));
+
+        Mono<Product> result = productUseCase.getProductById(productId);
+
+        StepVerifier.create(result)
+                .expectNextMatches(p ->
+                        p.getId().equals(productId) &&
+                                "Product 1".equals(p.getName()) &&
+                                p.getStock() == 10
+                )
+                .verifyComplete();
+
+        verify(productPersistencePort).findProductById(productId);
+    }
+
+    @Test
+    void getProductById_NotFound() {
+        Integer productId = 1;
+
+        when(productPersistencePort.findProductById(productId))
+                .thenReturn(Mono.error(new BusinessException(BusinessErrorMessage.PRODUCT_NOT_FOUND)));
+
+        Mono<Product> result = productUseCase.getProductById(productId);
+
+        StepVerifier.create(result)
+                .expectErrorMatches(throwable ->
+                        throwable instanceof BusinessException &&
+                                throwable.getMessage().equals(BusinessErrorMessage.PRODUCT_NOT_FOUND.getMessage())
+                )
+                .verify();
+
+        verify(productPersistencePort).findProductById(productId);
+    }
 }
