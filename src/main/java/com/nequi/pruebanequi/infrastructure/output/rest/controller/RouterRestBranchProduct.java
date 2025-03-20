@@ -2,7 +2,7 @@ package com.nequi.pruebanequi.infrastructure.output.rest.controller;
 
 
 import com.nequi.pruebanequi.application.handler.impl.BranchProductHandlerImpl;
-import com.nequi.pruebanequi.infrastructure.output.rest.utils.AddRouterRestBranchInfo;
+import com.nequi.pruebanequi.infrastructure.output.rest.utils.AddRouterBranchProductInfo;
 import org.springframework.context.annotation.Bean;
 import org.springframework.context.annotation.Configuration;
 import org.springframework.web.reactive.function.server.RouterFunction;
@@ -18,7 +18,7 @@ import static org.springframework.web.reactive.function.server.RequestPredicates
 @Configuration
 public class RouterRestBranchProduct {
     @Bean(name = BRANCH_PRODUCT_ROUTER_FUNCTION)
-    @AddRouterRestBranchInfo
+    @AddRouterBranchProductInfo
     public RouterFunction<ServerResponse> routerFunction(BranchProductHandlerImpl handler) {
         return RouterFunctions.nest(
                 path(PATH_BRANCH_PRODUCT),
