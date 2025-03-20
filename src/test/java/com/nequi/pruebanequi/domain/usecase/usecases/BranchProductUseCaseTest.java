@@ -15,6 +15,9 @@ import org.mockito.junit.jupiter.MockitoExtension;
 import reactor.core.publisher.Mono;
 import reactor.test.StepVerifier;
 
+import java.util.ArrayList;
+import java.util.List;
+
 import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.Mockito.lenient;
 import static org.mockito.Mockito.never;
@@ -78,6 +81,59 @@ class BranchProductUseCaseTest {
                 .verify();
 
         verify(branchProductPersistencePort, never()).saveProductBranch(any(BranchProduct.class));
+    }
+
+    @Test
+    void getBranchProductByBranchId_Successfully() {
+        BranchProduct branchProduct = new BranchProduct();
+        branchProduct.setId(1);
+        branchProduct.setBranchId(1);
+        branchProduct.setProductId(1);
+
+        List<BranchProduct> branchProductList = new ArrayList<>();
+        branchProductList.add(branchProduct);
+
+        lenient().when(branchProductPersistencePort.findBranchProductByBranchId(any(Integer.class)))
+                .thenReturn(Mono.just(branchProductList));
+
+        Mono<List<BranchProduct>> result = branchProductUseCase.getBranchProductByBranchId(1);
+
+        StepVerifier.create(result)
+                .expectNextMatches(list -> list.size() == 1 && list.get(0).getBranchId() == 1)
+                .verifyComplete();
+
+        verify(branchProductPersistencePort).findBranchProductByBranchId(1);
+    }
+
+    @Test
+    void getBranchProductByBranchId_EmptyList() {
+        List<BranchProduct> branchProductList = new ArrayList<>();
+
+        lenient().when(branchProductPersistencePort.findBranchProductByBranchId(any(Integer.class)))
+                .thenReturn(Mono.just(branchProductList));
+
+        Mono<List<BranchProduct>> result = branchProductUseCase.getBranchProductByBranchId(1);
+
+        StepVerifier.create(result)
+                .expectNextMatches(List::isEmpty)
+                .verifyComplete();
+
+        verify(branchProductPersistencePort).findBranchProductByBranchId(1);
+    }
+
+    @Test
+    void getBranchProductByBranchId_Error() {
+        lenient().when(branchProductPersistencePort.findBranchProductByBranchId(any(Integer.class)))
+                .thenReturn(Mono.error(new RuntimeException("Error retrieving data")));
+
+        Mono<List<BranchProduct>> result = branchProductUseCase.getBranchProductByBranchId(1);
+
+        StepVerifier.create(result)
+                .expectErrorMatches(throwable -> throwable instanceof RuntimeException &&
+                        throwable.getMessage().equals("Error retrieving data"))
+                .verify();
+
+        verify(branchProductPersistencePort).findBranchProductByBranchId(1);
     }
 
 }

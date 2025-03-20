@@ -3,10 +3,10 @@ services:
     image: mysql:8.0
     container_name: mysql_db
     environment:
-      MYSQL_ROOT_PASSWORD: rootpassword
-      MYSQL_DATABASE: pruebanequi
-      MYSQL_USER: usuarionequi
-      MYSQL_PASSWORD: passwordnequi
+      MYSQL_ROOT_PASSWORD: ${MYSQL_ROOT_PASSWORD}
+      MYSQL_DATABASE: ${MYSQL_DATABASE}
+      MYSQL_USER: ${MYSQL_USER}
+      MYSQL_PASSWORD: ${MYSQL_PASSWORD}
     ports:
       - "3306:3306"
     volumes:
@@ -22,9 +22,9 @@ services:
     depends_on:
       - mysql_db
     environment:
-      SPRING_R2DBC_URL: r2dbc:mysql://localhost:3306/pruebanequi
-      SPRING_R2DBC_USERNAME: usuarionequi
-      SPRING_R2DBC_PASSWORD: passwordnequi
+      SPRING_R2DBC_URL: ${SPRING_R2DBC_URL}
+      SPRING_R2DBC_USERNAME: ${SPRING_R2DBC_USERNAME}
+      SPRING_R2DBC_PASSWORD: ${SPRING_R2DBC_PASSWORD}
     networks:
       - nequi_network
 
