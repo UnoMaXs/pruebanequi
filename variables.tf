@@ -1,7 +1,7 @@
 variable "aws_region" {
   description = "Región de AWS donde se desplegarán los recursos"
   type        = string
-  default     = "us-east-1"
+  default     = "us-east-2"
 }
 
 variable "vpc_cidr_block" {
